@@ -15,7 +15,7 @@ export default function Recommendations() {
       try {
         setLoading(true);
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/analysis/user/top-tracks`,
+          `${import.meta.env.VITE_API_URL}/analysis/top-tracks`,
           {
             headers: { Authorization: `Bearer ${accessToken}` }
           }
@@ -38,24 +38,16 @@ export default function Recommendations() {
       setLoading(true);
       setSelectedTrack(track);
       
-      // Train the model with user's top tracks
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/recommendations/train`,
-        topTracks,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        }
-      );
-
       // Get recommendations based on selected track
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/recommendations/${track.id}`,
+        `${import.meta.env.VITE_API_URL}/recommendations/similar-tracks?track_id=${track.id}`,
         {
           headers: { Authorization: `Bearer ${accessToken}` }
         }
       );
       
       setRecommendations(response.data);
+      console.log(response.data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -96,8 +88,17 @@ export default function Recommendations() {
                   : 'border-gray-200 hover:border-indigo-600'
               }`}
             >
-              <div className="text-sm font-medium text-gray-900">{track.name}</div>
-              <div className="text-sm text-gray-500">{track.artist}</div>
+              <div className="flex items-center space-x-3">
+                <img
+                  src={track.album.images[2]?.url}
+                  alt={track.name}
+                  className="w-12 h-12 rounded"
+                />
+                <div className="text-left">
+                  <div className="text-sm font-medium text-gray-900">{track.name}</div>
+                  <div className="text-sm text-gray-500">{track.artists[0].name}</div>
+                </div>
+              </div>
             </button>
           ))}
         </div>
@@ -114,26 +115,17 @@ export default function Recommendations() {
                 key={track.id}
                 className="p-4 rounded-lg border border-gray-200"
               >
-                <div className="text-sm font-medium text-gray-900">
-                  {track.name}
-                </div>
-                <div className="text-sm text-gray-500">{track.artist}</div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500">
+                <div className="flex items-center space-x-3">
+                  <img
+                    src={track.album.images[2]?.url}
+                    alt={track.name}
+                    className="w-12 h-12 rounded"
+                  />
                   <div>
-                    <span className="font-medium">Danceability:</span>{' '}
-                    {Math.round(track.danceability * 100)}%
-                  </div>
-                  <div>
-                    <span className="font-medium">Energy:</span>{' '}
-                    {Math.round(track.energy * 100)}%
-                  </div>
-                  <div>
-                    <span className="font-medium">Valence:</span>{' '}
-                    {Math.round(track.valence * 100)}%
-                  </div>
-                  <div>
-                    <span className="font-medium">Tempo:</span>{' '}
-                    {Math.round(track.tempo)} BPM
+                    <div className="text-sm font-medium text-gray-900">
+                      {track.name}
+                    </div>
+                    <div className="text-sm text-gray-500">{track.artists[0].name}</div>
                   </div>
                 </div>
               </div>

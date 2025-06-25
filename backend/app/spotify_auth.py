@@ -9,6 +9,8 @@ import json
 from dotenv import load_dotenv
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
+import logging
+import traceback
 
 load_dotenv()
 
@@ -33,7 +35,11 @@ SCOPES = [
     "user-read-currently-playing",
     "user-read-playback-state",
     "playlist-read-private",
-    "playlist-read-collaborative"
+    "playlist-read-collaborative",
+    "playlist-modify-private",
+    "playlist-modify-public",
+    "user-library-modify",
+    "user-library-read"
 ]
 
 # OAuth2 scheme for token authentication
@@ -60,6 +66,17 @@ async def login():
 @router.get("/callback")
 async def callback(code: str):
     """Handle Spotify OAuth callback"""
+    print(f"Received callback with code: {code}")  # Debug log
+    
+    # Check if environment variables are set
+    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET or not SPOTIFY_REDIRECT_URI:
+        error_msg = "Missing required environment variables"
+        print(error_msg)
+        print(f"CLIENT_ID: {'Set' if SPOTIFY_CLIENT_ID else 'Missing'}")
+        print(f"CLIENT_SECRET: {'Set' if SPOTIFY_CLIENT_SECRET else 'Missing'}")
+        print(f"REDIRECT_URI: {'Set' if SPOTIFY_REDIRECT_URI else 'Missing'}")
+        raise HTTPException(status_code=400, detail=error_msg)
+    
     try:
         # Exchange authorization code for access token
         token_data = {
@@ -70,25 +87,42 @@ async def callback(code: str):
             "client_secret": SPOTIFY_CLIENT_SECRET
         }
         
+        print(f"Making token request with data: {token_data}")  # Debug log
         response = requests.post(SPOTIFY_TOKEN_URL, data=token_data)
-        response.raise_for_status()
+        
+        if response.status_code != 200:
+            print(f"Token request failed with status {response.status_code}")
+            print(f"Response: {response.text}")
+            raise HTTPException(status_code=400, detail=f"Token request failed: {response.text}")
         
         tokens = response.json()
+        print(f"Received tokens: {tokens}")  # Debug log
         
         # Get user profile
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
         user_response = requests.get(f"{SPOTIFY_API_BASE_URL}/me", headers=headers)
-        user_response.raise_for_status()
-        user_data = user_response.json()
         
+        if user_response.status_code != 200:
+            print(f"User profile request failed with status {user_response.status_code}")
+            print(f"Response: {user_response.text}")
+            raise HTTPException(status_code=400, detail=f"User profile request failed: {user_response.text}")
+        
+        user_data = user_response.json()
+        print(f"Received user data: {user_data}")  # Debug log
+        
+        # Return both access token and refresh token
         return {
             "access_token": tokens["access_token"],
-            "refresh_token": tokens["refresh_token"],
+            "refresh_token": tokens.get("refresh_token"),  # Use get() in case refresh_token is not present
             "expires_in": tokens["expires_in"],
             "user": user_data
         }
         
     except requests.exceptions.RequestException as e:
+        print(f"Error in callback: {str(e)}")  # Debug log
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Unexpected error in callback: {str(e)}")  # Debug log
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/refresh")
@@ -129,10 +163,22 @@ def get_spotify_client():
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     """Get current user's Spotify profile using the access token"""
     try:
+        # Log token for debugging (first 10 chars only)
+        logging.info(f"Received token: {token[:10]}...")
+        
+        # Create Spotify client
         sp = Spotify(auth=token)
+        
+        # Get user profile
         user = sp.current_user()
+        
+        # Add the access token to the user data
+        user["access_token"] = token
+        
         return user
     except Exception as e:
+        logging.error(f"Error in get_current_user: {str(e)}")
+        logging.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -141,4 +187,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 def get_spotify_api_client(token: str):
     """Create a Spotify API client with the given token"""
-    return Spotify(auth=token) 
+    try:
+        return Spotify(auth=token)
+    except Exception as e:
+        logging.error(f"Error creating Spotify client: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error initializing Spotify client: {str(e)}"
+        ) 

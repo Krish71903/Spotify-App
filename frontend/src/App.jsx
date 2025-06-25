@@ -8,9 +8,19 @@ import Callback from './pages/Callback';
 import Dashboard from './pages/Dashboard';
 import Recommendations from './pages/Recommendations';
 import Profile from './pages/Profile';
+import Upload from './pages/Upload';
 
 const PrivateRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+      </div>
+    );
+  }
+
   return user ? children : <Navigate to="/login" />;
 };
 
@@ -21,7 +31,7 @@ const App = () => {
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-900">
           <Navbar />
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/" element={<Navigate to="/login" />} />
             <Route path="/login" element={<Login />} />
             <Route path="/callback" element={<Callback />} />
             <Route
@@ -45,6 +55,14 @@ const App = () => {
               element={
                 <PrivateRoute>
                   <Profile />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/upload"
+              element={
+                <PrivateRoute>
+                  <Upload />
                 </PrivateRoute>
               }
             />
