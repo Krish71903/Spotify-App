@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 const Callback = () => {
   const navigate = useNavigate();
@@ -8,20 +9,62 @@ const Callback = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Get the access token from the URL hash
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const accessToken = params.get('access_token');
+      // Get the authorization code from the URL query parameters
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
 
-      if (accessToken) {
-        // Login with the access token
-        const success = await login(accessToken);
-        if (success) {
-          navigate('/dashboard');
-        } else {
+      if (code) {
+        try {
+          const apiUrl = `${import.meta.env.VITE_API_URL}/spotify/callback`;
+          console.log('Making request to:', apiUrl);
+          
+          // Exchange the code for an access token using your backend
+          const response = await axios.get(apiUrl, {
+            params: { code },
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (!response.data || typeof response.data !== 'object') {
+            throw new Error('Invalid response from server');
+          }
+          
+          console.log('Token exchange response:', response.data);
+          
+          const { access_token, refresh_token, user } = response.data;
+          
+          if (!access_token || !user) {
+            throw new Error('Missing required data from server response');
+          }
+          
+          // Login with both tokens and user data
+          console.log('Attempting login with tokens...');
+          const success = await login(access_token, refresh_token, user);
+          console.log('Login success:', success);
+          
+          if (success) {
+            // Clear the URL parameters to prevent duplicate requests
+            window.history.replaceState({}, document.title, window.location.pathname);
+            console.log('Redirecting to dashboard...');
+            navigate('/dashboard');
+          } else {
+            console.log('Login failed, redirecting to login...');
+            navigate('/login');
+          }
+        } catch (error) {
+          console.error('Error exchanging code for token:', error);
+          console.error('Error details:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            params: error.config?.params,
+            status: error.response?.status,
+            data: error.response?.data
+          });
           navigate('/login');
         }
       } else {
+        console.log('No code found in URL, redirecting to login...');
         navigate('/login');
       }
     };
