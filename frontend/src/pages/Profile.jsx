@@ -34,7 +34,7 @@ export default function Profile() {
       try {
         setLoading(true);
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/analysis/user/top-tracks`,
+          `${import.meta.env.VITE_API_URL}/analysis/top-tracks`,
           {
             headers: { Authorization: `Bearer ${accessToken}` }
           }
