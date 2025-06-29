@@ -13,7 +13,7 @@ const Dashboard = () => {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  const [timeRange, setTimeRange] = useState('medium_term'); // short_term, medium_term, long_term
+  const [timeRange, setTimeRange] = useState('medium_term');
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
   const [musicPreferences, setMusicPreferences] = useState(null);
 
@@ -27,7 +27,6 @@ const Dashboard = () => {
       
       try {
         setLoading(true);
-        // Fetch top tracks and artists
         const [tracksResponse, artistsResponse, recentResponse] = await Promise.all([
           axios.get(`${import.meta.env.VITE_API_URL}/analysis/top-tracks?time_range=${timeRange}`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -46,7 +45,6 @@ const Dashboard = () => {
         });
         setRecentlyPlayed(recentResponse.data);
 
-        // Calculate music preferences from top tracks
         const preferences = calculateMusicPreferences(tracksResponse.data);
         setMusicPreferences(preferences);
       } catch (error) {
@@ -68,7 +66,6 @@ const Dashboard = () => {
       return acc;
     }, {});
 
-    // Calculate averages
     Object.keys(features).forEach(key => {
       features[key] = features[key] / tracks.length;
     });
@@ -89,8 +86,8 @@ const Dashboard = () => {
           musicPreferences.instrumentalness,
           musicPreferences.liveness
         ] : [],
-        backgroundColor: 'rgba(99, 102, 241, 0.2)',
-        borderColor: 'rgba(99, 102, 241, 1)',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderColor: 'rgba(99, 102, 241, 0.8)',
         borderWidth: 2,
         pointBackgroundColor: 'rgba(99, 102, 241, 1)',
       },
@@ -98,165 +95,162 @@ const Dashboard = () => {
   };
 
   const radarChartOptions = {
+    maintainAspectRatio: false,
     scales: {
       r: {
+        beginAtZero: true,
+        max: 1,
         angleLines: {
-          color: 'rgba(255, 255, 255, 0.2)',
+          color: 'rgba(255, 255, 255, 0.1)',
         },
         grid: {
-          color: 'rgba(255, 255, 255, 0.2)',
+          color: 'rgba(255, 255, 255, 0.1)',
         },
         pointLabels: {
-          color: 'rgba(255, 255, 255, 0.8)',
+          color: 'rgba(255, 255, 255, 0.7)',
+          font: {
+            size: 12,
+          },
         },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.5)',
+          color: 'rgba(255, 255, 255, 0.3)',
           backdropColor: 'transparent',
+          font: {
+            size: 10,
+          },
         },
       },
     },
     plugins: {
       legend: {
-        labels: {
-          color: 'rgba(255, 255, 255, 0.8)',
-        },
+        display: false,
       },
     },
   };
 
+  const StatCard = ({ title, children, className = "" }) => (
+    <div className={`bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 ${className}`}>
+      <h3 className="text-lg font-semibold text-white/90 mb-4">{title}</h3>
+      {children}
+    </div>
+  );
+
+  const MusicItem = ({ item, index, type = 'track' }) => (
+    <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+      <span className="text-indigo-300 font-medium w-6 text-sm">{index + 1}</span>
+      <img
+        src={type === 'track' ? item.album?.images[2]?.url : item.images?.[2]?.url}
+        alt={item.name}
+        className={`w-10 h-10 ${type === 'artist' ? 'rounded-full' : 'rounded'} object-cover`}
+      />
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-white/90 truncate text-sm">{item.name}</p>
+        {type === 'track' && (
+          <p className="text-xs text-white/60 truncate">{item.artists?.[0]?.name}</p>
+        )}
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/70">Loading your music insights...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-900 text-white p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* User Profile Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-8">
-          <div className="flex items-center space-x-4">
-            {user.images?.[0]?.url && (
-              <img
-                src={user.images[0].url}
-                alt={user.display_name}
-                className="w-20 h-20 rounded-full border-2 border-indigo-400"
-              />
-            )}
-            <div>
-              <h1 className="text-3xl font-bold">{user.display_name}</h1>
-              <p className="text-indigo-200">{user.followers?.total} followers</p>
-              <p className="text-indigo-200">{user.email}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Time Range Selector */}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-900 text-white">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header Section */}
         <div className="mb-8">
-          <div className="flex space-x-4">
-            <button
-              onClick={() => setTimeRange('short_term')}
-              className={`px-4 py-2 rounded-lg ${
-                timeRange === 'short_term'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white/10 text-indigo-200 hover:bg-white/20'
-              }`}
-            >
-              Last 4 Weeks
-            </button>
-            <button
-              onClick={() => setTimeRange('medium_term')}
-              className={`px-4 py-2 rounded-lg ${
-                timeRange === 'medium_term'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white/10 text-indigo-200 hover:bg-white/20'
-              }`}
-            >
-              Last 6 Months
-            </button>
-            <button
-              onClick={() => setTimeRange('long_term')}
-              className={`px-4 py-2 rounded-lg ${
-                timeRange === 'long_term'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white/10 text-indigo-200 hover:bg-white/20'
-              }`}
-            >
-              All Time
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* Top Tracks */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-            <h2 className="text-xl font-semibold mb-4">Top Tracks</h2>
-            <div className="space-y-4">
-              {stats?.tracks?.slice(0, 5).map((track, index) => (
-                <div key={track.id} className="flex items-center space-x-3">
-                  <span className="text-indigo-300 w-6">{index + 1}</span>
-                  <img
-                    src={track.album.images[2]?.url}
-                    alt={track.name}
-                    className="w-12 h-12 rounded"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{track.name}</p>
-                    <p className="text-sm text-indigo-200 truncate">{track.artists[0].name}</p>
-                  </div>
-                </div>
-              ))}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            {/* User Profile - Compact */}
+            <div className="flex items-center space-x-4">
+              {user.images?.[0]?.url && (
+                <img
+                  src={user.images[0].url}
+                  alt={user.display_name}
+                  className="w-16 h-16 rounded-full border-2 border-white/20"
+                />
+              )}
+              <div>
+                <h1 className="text-2xl font-bold text-white">{user.display_name}</h1>
+                <p className="text-white/60 text-sm">{user.followers?.total} followers</p>
+              </div>
             </div>
-          </div>
 
-          {/* Top Artists */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-            <h2 className="text-xl font-semibold mb-4">Top Artists</h2>
-            <div className="space-y-4">
-              {stats?.artists?.slice(0, 5).map((artist, index) => (
-                <div key={artist.id} className="flex items-center space-x-3">
-                  <span className="text-indigo-300 w-6">{index + 1}</span>
-                  <img
-                    src={artist.images[2]?.url}
-                    alt={artist.name}
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <p className="font-medium truncate">{artist.name}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recently Played */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-            <h2 className="text-xl font-semibold mb-4">Recently Played</h2>
-            <div className="space-y-4">
-              {recentlyPlayed?.slice(0, 5).map((item, index) => (
-                <div key={item.track.id} className="flex items-center space-x-3">
-                  <span className="text-indigo-300 w-6">{index + 1}</span>
-                  <img
-                    src={item.track.album.images[2]?.url}
-                    alt={item.track.name}
-                    className="w-12 h-12 rounded"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{item.track.name}</p>
-                    <p className="text-sm text-indigo-200 truncate">{item.track.artists[0].name}</p>
-                  </div>
-                </div>
+            {/* Time Range Selector - Improved */}
+            <div className="flex bg-white/5 backdrop-blur-sm rounded-xl p-1 border border-white/10">
+              {[
+                { value: 'short_term', label: '4 Weeks' },
+                { value: 'medium_term', label: '6 Months' },
+                { value: 'long_term', label: 'All Time' }
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setTimeRange(option.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    timeRange === option.value
+                      ? 'bg-indigo-600 text-white shadow-lg'
+                      : 'text-white/70 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {option.label}
+                </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Music Preferences Radar Chart */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Your Music Preferences</h2>
-          <div className="h-96">
-            <Radar data={radarChartData} options={radarChartOptions} />
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Music Lists */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Top Tracks */}
+              <StatCard title="Top Tracks">
+                <div className="space-y-2">
+                  {stats?.tracks?.slice(0, 5).map((track, index) => (
+                    <MusicItem key={track.id} item={track} index={index} type="track" />
+                  ))}
+                </div>
+              </StatCard>
+
+              {/* Top Artists */}
+              <StatCard title="Top Artists">
+                <div className="space-y-2">
+                  {stats?.artists?.slice(0, 5).map((artist, index) => (
+                    <MusicItem key={artist.id} item={artist} index={index} type="artist" />
+                  ))}
+                </div>
+              </StatCard>
+            </div>
+
+            {/* Recently Played - Full Width */}
+            <StatCard title="Recently Played">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {recentlyPlayed?.slice(0, 6).map((item, index) => (
+                  <MusicItem key={`${item.track.id}-${index}`} item={item.track} index={index} type="track" />
+                ))}
+              </div>
+            </StatCard>
+          </div>
+
+          {/* Right Column - Music Preferences Chart */}
+          <div className="lg:col-span-1">
+            <StatCard title="Music Preferences" className="h-full">
+              <div className="h-80">
+                <Radar data={radarChartData} options={radarChartOptions} />
+              </div>
+              <div className="mt-4 text-xs text-white/60">
+                Visual representation of your music taste based on audio features
+              </div>
+            </StatCard>
           </div>
         </div>
       </div>
